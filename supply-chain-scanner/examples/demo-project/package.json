@@ -1,14 +1,42 @@
 {
-  "name": "demo-vulnerable-npm-project",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Small demo project for npm supply-chain risk scanning.",
+  "name": "face-recognition",
+  "version": "0.9.4",
+  "description": "Simple Node.js API for robust face detection and face recognition.",
+  "keywords": [
+    "face",
+    "detection",
+    "recognition"
+  ],
+  "author": "justadudewhohacks",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/justadudewhohacks/face-recognition.js"
+  },
+  "bugs": {
+    "url": "https://github.com/justadudewhohacks/face-recognition.js/issues"
+  },
+  "homepage": "https://github.com/justadudewhohacks/face-recognition.js#readme",
+  "main": "./lib/index.js",
+  "typings": "./lib/index.d.ts",
+  "scripts": {
+    "test": "mocha --timeout 30000 --recursive ./tests",
+    "install": "node-gyp rebuild",
+    "configure": "node-gyp configure",
+    "build": "node-gyp configure build",
+    "rebuild": "node-gyp rebuild",
+    "clean": "node-gyp clean",
+    "build-debug": "node-gyp rebuild --debug"
+  },
+  "gypfile": true,
   "dependencies": {
-    "express": "4.18.2",
-    "lodash": "4.17.20",
-    "pino": "9.14.0"
+    "dlib-build": "^0.1.1",
+    "face-recognition-models": "0.0.0",
+    "nan": "^2.7.0",
+    "native-node-utils": "0.0.4"
   },
   "devDependencies": {
-    "minimist": "0.0.8"
+    "chai": "^4.1.2",
+    "mocha": "^4.1.0"
   }
 }
