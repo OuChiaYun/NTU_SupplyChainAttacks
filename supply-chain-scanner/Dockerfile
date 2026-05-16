@@ -27,6 +27,7 @@ RUN python3 -m venv /opt/scanner-venv \
 
 COPY scanner.py /scanner/scanner.py
 COPY cve_enricher.py /scanner/cve_enricher.py
+COPY templates /scanner/templates
 
 ENV PATH="/opt/scanner-venv/bin:${PATH}"
 
