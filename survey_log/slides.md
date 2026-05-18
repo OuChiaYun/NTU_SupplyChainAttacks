@@ -87,7 +87,7 @@ No prompt. No review. Compromised upon installation.
 <!-- _footer: "SLSA, *Supply chain threats*, slsa.dev/spec/v1.0/threats-overview" -->
 
 # The Supply Chain Has Many Attack Surfaces
-![](images/supply-chain-threats.svg)
+![](../images/supply-chain-threats.svg)
 
 ---
 
@@ -165,11 +165,11 @@ Expected values are set by the maintainer, declared in the repo, or learned from
 # Example Usages of npq
 **Prior had no attestation**
 
-![](images/npq1.png)
+![](../images/npq1.png)
 
 **Prior had attestation**
 
-![](images/npq2.png)
+![](../images/npq2.png)
 
 ---
 
