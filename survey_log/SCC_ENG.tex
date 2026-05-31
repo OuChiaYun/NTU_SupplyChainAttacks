@@ -115,6 +115,30 @@ According to NIST, a software supply chain is a set of steps that create, transf
 
 A software supply chain attack occurs when an attacker compromises or manipulates a trusted node in this chain. The compromised node may be a dependency package, maintainer account, build cache, CI/CD workflow, registry account, signing process, or release pipeline. The attacker's goal is not simply to exploit a vulnerability inside the final application. Instead, the attacker abuses the existing trust relationships among developers, tools, packages, and registries. Because popular packages are often reused by many projects, a single upstream compromise can create large downstream impact.
 
+
+\subsection{Representative Forms of Software Supply Chain Attacks}
+
+To clarify that software supply chain attacks are not limited to ordinary package vulnerabilities, this section summarizes six representative attack forms. Prior work has proposed broader taxonomies of SSC attacks, covering naming attacks, package takeover, account abuse, registry behavior, and build-process compromise\cite{ssc-taxonomy}. This report selects only the forms most relevant to the presentation and to the later Axios and TanStack case studies.
+
+\begin{table}[h]
+\centering
+\caption{Representative software supply chain attack forms}
+\begin{tabularx}{\textwidth}{P{4cm}Y}
+\toprule
+\textbf{Attack Form} & \textbf{Description} \\
+\midrule
+Typosquatting & An attacker publishes a malicious package with a name similar to a popular package, relying on spelling mistakes or visual similarity to mislead developers. \\
+Dependency Confusion & When a project uses both public and private registries, an attacker publishes a same-name package to the public registry, causing the package manager to resolve the wrong source. \\
+Account Takeover & An attacker steals a maintainer or developer account and then uses legitimate publishing privileges to release malicious package versions. \\
+Package Takeover & An attacker gains control of an abandoned, transferred, or weakly governed package and publishes a new version containing malicious behavior. \\
+Code Injection & An attacker inserts malicious code into an otherwise trusted package, dependency, or release artifact, allowing the malicious behavior to blend into a normal software workflow. \\
+CI/CD Compromise & An attacker abuses build workflows, caches, runner environments, or tokens so that a legitimate build and release process produces a malicious artifact. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+These attack forms show that software supply chain security is not only about reviewing source code. It must also cover package naming, maintainer accounts, dependency resolution, package registries, build pipelines, and release processes. The Axios case primarily illustrates account takeover, malicious package publication, and installation-script abuse, while the TanStack case further demonstrates CI/CD compromise and weaknesses in cache trust boundaries.
+
 \subsection{Why Software Supply Chain Failure Became a Top Risk}
 
 OWASP Top 10:2025 ranks \textit{Software Supply Chain Failures} as A03, which reflects a shift in the risk landscape of application security. Traditional application security often focuses on internal defects in applications, such as injection, authentication failure, insecure design, or access control failure. By contrast, software supply chain security focuses on how an application is built, which external components it depends on, who publishes those components, and whether the final artifact can be verified.
@@ -511,6 +535,12 @@ IBM.
 ReversingLabs.
 \textit{Software Supply Chain Security Report 2026}.
 \url{https://www.reversinglabs.com/resources/software-supply-chain-security-report-2026}
+
+
+\bibitem{ssc-taxonomy}
+ScienceDirect.
+\textit{A taxonomy and analysis of software supply chain attacks}.
+\url{https://www.sciencedirect.com/science/article/pii/S2214212625003606}
 
 \end{thebibliography}
 

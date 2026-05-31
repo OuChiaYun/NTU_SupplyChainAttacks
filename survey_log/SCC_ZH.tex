@@ -122,6 +122,30 @@ npm install   pip install   mvn install   conda install
 
 Software supply chain attack 則是指攻擊者攻破或操控供應鏈中的某個受信任節點。該節點可能是 dependency package、maintainer account、build cache、CI/CD workflow、registry account、signing process 或 release pipeline。攻擊者的目標不是單純利用應用程式本身的漏洞，而是濫用開發者、工具、套件與註冊庫之間既有的信任關係。由於熱門套件通常被大量專案重複使用，單一 upstream compromise 便可能造成大規模 downstream impact。
 
+
+\subsection{Representative Forms of Software Supply Chain Attacks}
+
+為了說明 software supply chain attacks 的攻擊面並不侷限於單一套件漏洞，本節整理六種具有代表性的攻擊形式。相關研究曾將 SSC 攻擊整理成更完整的 taxonomy，涵蓋名稱偽裝、套件接管、帳號濫用、registry 行為與建置流程等多種攻擊途徑\cite{ssc-taxonomy}。本文僅選取與本簡報主軸最相關的六類，用來銜接後續 Axios 與 TanStack 兩個案例。
+
+\begin{table}[h]
+\centering
+\caption{代表性的 software supply chain attack forms}
+\begin{tabularx}{\textwidth}{P{4cm}Y}
+\toprule
+\textbf{Attack Form} & \textbf{Description} \\
+\midrule
+Typosquatting & 攻擊者發布名稱與熱門套件相似的惡意套件，利用拼字錯誤或近似命名誘使開發者誤裝。 \\
+Dependency Confusion & 當專案同時使用 public registry 與 private registry 時，攻擊者在 public registry 發布同名套件，使 package manager 解析到錯誤來源。 \\
+Account Takeover & 攻擊者竊取 maintainer 或 developer 帳號憑證，接著使用合法帳號權限發布惡意套件版本。 \\
+Package Takeover & 攻擊者取得無人維護、轉移所有權或信任邊界鬆散的套件控制權，再發布帶有惡意內容的新版本。 \\
+Code Injection & 攻擊者將惡意程式碼注入到原本受信任的 package、dependency 或 release artifact 中，使惡意行為混入正常軟體流程。 \\
+CI/CD Compromise & 攻擊者濫用 build workflows、cache、runner environment 或 tokens，使合法的建置與發布流程產出惡意 artifact。 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+這些攻擊形式說明，software supply chain security 不只是在檢查 source code 本身，也必須涵蓋套件名稱、maintainer accounts、dependency resolution、package registries、build pipelines 與 release process。後續 Axios 事件主要展示 account takeover、malicious package publication 與 installation script abuse 的風險；TanStack 事件則進一步展示 CI/CD compromise 與 cache trust boundary 的問題。
+
 \subsection{Why Software Supply Chain Failure Became a Top Risk}
 
 OWASP Top 10:2025 將 \textit{Software Supply Chain Failures} 排為 A03，顯示應用程式安全的風險重心正在轉變。傳統應用程式安全多半聚焦於應用程式內部缺陷，例如 injection、authentication failure、insecure design 或 access control failure。相較之下，software supply chain security 更關注應用程式是如何被建置、依賴哪些外部元件、由誰發布這些元件，以及最終 artifact 是否能被驗證。
@@ -518,6 +542,12 @@ IBM.
 ReversingLabs.
 \textit{Software Supply Chain Security Report 2026}.
 \url{https://www.reversinglabs.com/resources/software-supply-chain-security-report-2026}
+
+
+\bibitem{ssc-taxonomy}
+ScienceDirect.
+\textit{A taxonomy and analysis of software supply chain attacks}.
+\url{https://www.sciencedirect.com/science/article/pii/S2214212625003606}
 
 \end{thebibliography}
 

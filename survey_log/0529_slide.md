@@ -52,6 +52,24 @@ A **software supply chain attack** occurs when an attacker compromises one trust
 
 Instead of attacking the final application directly, the attacker abuses the trust between developers, tools, packages, and registries. Because one package can be reused by many downstream projects, a single compromise can spread widely.
 
+---
+
+# Common Forms of Supply Chain Attacks
+<!-- TODO for different type of attack-->
+
+Software supply chain attacks can happen at different points in the development and release process.
+
+| Attack form | How it works |
+|---|---|
+| **Typosquatting** | Publish a malicious package with a name similar to a popular package |
+| **Dependency Confusion** | Abuse public/private registry priority to install the wrong package |
+| **Account Takeover** | Steal a maintainer account and publish malicious package versions |
+| **Package Takeover** | Gain ownership of an abandoned or transferred package |
+| **Code Injection** | Insert malicious code into a trusted package or dependency |
+| **CI/CD Compromise** | Abuse build workflows, caches, or tokens to publish malicious artifacts |
+
+These attack forms show why supply chain security must protect not only source code,  
+but also packages, maintainers, registries, and build pipelines.
 
 ---
 
@@ -352,6 +370,8 @@ Controls already deployed after the axios incident:
 # References
 - NIST — *SP 800-204D: Strategies for the Integration of Software Supply Chain Security in DevSecOps CI/CD Pipelines*  
   `nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-204D.pdf`
+- ScienceDirect — *A taxonomy and analysis of software supply chain attacks*  
+  `sciencedirect.com/science/article/pii/S2214212625003606`
 - OWASP — *Software Supply Chain Security Cheat Sheet*  
   `cheatsheetseries.owasp.org/cheatsheets/Software_Supply_Chain_Security_Cheat_Sheet.html`
 - OWASP — *A03:2025 Software Supply Chain Failures*  
