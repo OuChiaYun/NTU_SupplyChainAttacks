@@ -254,7 +254,7 @@ Expected values 可以由 maintainer 在 repository 中宣告，也可以由 org
 
 \subsection{Technology Stack and Workflow}
 
-實務上，build provenance 涉及多個技術層次。SLSA 定義 provenance 與 build levels 需要證明的內容；Sigstore 提供 keyless signing 與 Rekor transparency log；registry 與 CI platform 負責產生、儲存與發布 attestations；consumer-side tools 如 npq 或 Socket Firewall 則可在安裝前進行 package risk checks 與 provenance verification。
+實務上，build provenance 涉及多個技術層次。SLSA 定義 provenance 與 build levels 所需證明的內容；Sigstore 提供 keyless signing 與 Rekor transparency log；registry 與 CI platform 負責產生、儲存與發布 attestations；consumer-side tools 如 npq 或 Socket Firewall 則可作為安裝前的檢查機制，用於 provenance verification，並輔助判斷套件安裝風險。
 
 \begin{table}[h]
 \centering
@@ -266,7 +266,7 @@ Expected values 可以由 maintainer 在 repository 中宣告，也可以由 org
 Framework & SLSA & 定義 provenance 應證明的內容，以及 build integrity levels。 \\
 Cryptography & Sigstore & 提供 keyless signing 與 public transparency log support，包括 Rekor。 \\
 Platform & Registry + CI & 產生、儲存與發布 attestations，例如 npm、PyPI 或 GitHub Actions。 \\
-Consumer & npq / Socket Firewall & 作為 pre-install gate，檢查 package risk 與 provenance status。 \\
+Consumer & npq / Socket Firewall & 作為 pre-install gate，用於 provenance verification，並輔助判斷套件安裝風險。 \\
 \bottomrule
 \end{tabularx}
 \end{table}

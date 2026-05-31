@@ -248,7 +248,7 @@ Expected values may be declared by the maintainer in the repository, specified b
 
 \subsection{Technology Stack and Workflow}
 
-In practice, build provenance involves several technology layers. SLSA defines what provenance and build levels should prove. Sigstore provides keyless signing and the Rekor transparency log. Registries and CI platforms generate, store, and publish attestations. Consumer-side tools such as npq or Socket Firewall can perform package risk checks and provenance verification before installation.
+In practice, build provenance involves several technology layers. SLSA defines what provenance and build levels are expected to prove. Sigstore provides keyless signing and the Rekor transparency log. Registries and CI platforms generate, store, and publish attestations. Consumer-side tools such as npq or Socket Firewall can serve as pre-install gates for provenance verification and can also help evaluate package installation risk.
 
 \begin{table}[h]
 \centering
@@ -260,7 +260,7 @@ In practice, build provenance involves several technology layers. SLSA defines w
 Framework & SLSA & Defines what provenance should prove and describes build integrity levels. \\
 Cryptography & Sigstore & Provides keyless signing and public transparency log support, including Rekor. \\
 Platform & Registry + CI & Generates, stores, and publishes attestations for ecosystems such as npm, PyPI, or GitHub Actions. \\
-Consumer & npq / Socket Firewall & Acts as a pre-install gate that checks package risk and provenance status. \\
+Consumer & npq / Socket Firewall & Acts as a pre-install gate for provenance verification and helps evaluate package installation risk. \\
 \bottomrule
 \end{tabularx}
 \end{table}
