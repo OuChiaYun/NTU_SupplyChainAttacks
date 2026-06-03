@@ -10,19 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     ca-certificates \
     bash \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g npq
 
-WORKDIR /scanner
+# GuardDog + requests 裝進同一個 python(system),避免 venv 隔離問題
+RUN pip install --break-system-packages --ignore-installed guarddog requests
 
-COPY requirements.txt .
-RUN python3 -m venv /opt/scanner-venv \
-    && /opt/scanner-venv/bin/pip install --no-cache-dir -r requirements.txt
+WORKDIR /scanner
 
 COPY models.py scanner.py main.py entrypoint.sh ./
 RUN chmod +x /scanner/entrypoint.sh
-
-ENV PATH="/opt/scanner-venv/bin:${PATH}"
 
 ENTRYPOINT ["/scanner/entrypoint.sh"]

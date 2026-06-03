@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAME="supply-chain-risk-scanner"
+IMAGE_NAME="npm-supply-chain-risk-gate"
 PROJECT_DIR="$(pwd)/examples/demo-project"
 
-echo "[1/3] Cleaning up previous run artifacts..."
+echo "[1/3] Cleaning up..."
 rm -rf "$PROJECT_DIR/node_modules"
 rm -f  "$PROJECT_DIR/postinstall-demo-log.json"
 
@@ -15,4 +15,5 @@ echo "[3/3] Running install-time behavior demo..."
 docker run --rm \
   -e MODE=install-demo \
   -v "$PROJECT_DIR:/project" \
+  --add-host=host.docker.internal:host-gateway \
   "$IMAGE_NAME"

@@ -1,28 +1,9 @@
 {
   "package": "demo-malicious-tool",
   "version": "1.0.1",
-  "event": "npm postinstall lifecycle script executed",
-  "demoPurpose": "This demo shows that a dependency can read .env during npm install.",
-  "safetyBoundary": "No network request is made. The .env values are written only to this local demo log.",
-  "timestamp": "2026-06-02T20:02:06.735Z",
-  "installDirectory": "/project/node_modules/demo-malicious-tool",
-  "userProjectDirectory": "/project",
-  "envFileChecked": "/project/.env",
+  "timestamp": "2026-06-03T12:19:10.922Z",
   "envFileFound": true,
   "envValues": {
     "KEY": "yeah-i-find-your-key-token"
-  },
-  "consoleOutput": [
-    "",
-    "========== POSTINSTALL DEMO ==========",
-    "[demo-malicious-tool] npm postinstall script executed",
-    "[demo-malicious-tool] checked .env path: /project/.env",
-    "[demo-malicious-tool] .env found",
-    "[demo-malicious-tool] values read from .env:",
-    "  KEY=yeah-i-find-your-key-token",
-    "",
-    "This proves a dependency can read project secrets during npm install.",
-    "======================================",
-    ""
-  ]
+  }
 }
