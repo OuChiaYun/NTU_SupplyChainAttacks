@@ -1,4 +1,4 @@
-# npm 供應鏈風險閘門（Supply Chain Risk Gate）成果說明
+# npm Supply Chain Risk Gate 
 
 本專案是《軟體供應鏈攻擊與建置來源證明》報告的實作驗證。報告主軸是討論軟體供應鏈攻擊與 build provenance 的限制：build provenance 可以提高套件來源的可追蹤性，但它不能單獨判斷套件是否真的安全；同樣地，npm audit、OSV 這類已知漏洞資料庫，也只能偵測已被收錄的風險。
 
