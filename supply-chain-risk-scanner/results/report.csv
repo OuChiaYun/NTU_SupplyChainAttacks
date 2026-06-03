@@ -1,0 +1,3 @@
+package,version,npm_audit_result,osv_result,npq_result,guarddog_result
+demo-malicious-tool,1.0.1,not flagged,not flagged,not checked: package not found,flagged: 3 issue(s)
+is-number,7.0.0,not flagged,not flagged,flagged: ERROR: Package Health - Detected expired domain can be abused for account takeover: sellside.com | WARNING: Package Health - Detected an old package: created 7 years ago | WARNING: Supply Chain Security - Unable to verify provenance: the package was published without any attestations,flagged: 1 issue(s)

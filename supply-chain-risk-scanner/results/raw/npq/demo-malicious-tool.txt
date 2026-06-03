@@ -1,0 +1,13 @@
+
+Packages with issues found:
+
+--- Package: demo-malicious-tool@1.0.1 ---
+  ERROR: Package Health - Package not found
+
+
+Summary:
+
+ - Total packages: 1
+ - Total errors: 1
+ - Total warnings: 0
+
