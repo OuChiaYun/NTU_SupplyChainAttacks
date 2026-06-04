@@ -1,0 +1,9 @@
+{
+  "package": "demo-malicious-tool",
+  "version": "1.0.1",
+  "timestamp": "2026-06-03T12:19:10.922Z",
+  "envFileFound": true,
+  "envValues": {
+    "KEY": "yeah-i-find-your-key-token"
+  }
+}

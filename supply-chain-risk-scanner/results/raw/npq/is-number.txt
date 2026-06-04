@@ -1,0 +1,15 @@
+
+Packages with issues found:
+
+--- Package: is-number@7.0.0 ---
+  ERROR: Package Health - Detected expired domain can be abused for account takeover: sellside.com
+  WARNING: Package Health - Detected an old package: created 7 years ago
+  WARNING: Supply Chain Security - Unable to verify provenance: the package was published without any attestations
+
+
+Summary:
+
+ - Total packages: 1
+ - Total errors: 1
+ - Total warnings: 2
+

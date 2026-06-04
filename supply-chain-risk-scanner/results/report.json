@@ -1,0 +1,18 @@
+[
+  {
+    "package": "demo-malicious-tool",
+    "version": "1.0.1",
+    "npm_audit_result": "not flagged",
+    "osv_result": "not flagged",
+    "npq_result": "not checked: package not found",
+    "guarddog_result": "flagged: 3 issue(s)"
+  },
+  {
+    "package": "is-number",
+    "version": "7.0.0",
+    "npm_audit_result": "not flagged",
+    "osv_result": "not flagged",
+    "npq_result": "flagged: ERROR: Package Health - Detected expired domain can be abused for account takeover: sellside.com | WARNING: Package Health - Detected an old package: created 7 years ago | WARNING: Supply Chain Security - Unable to verify provenance: the package was published without any attestations",
+    "guarddog_result": "flagged: 1 issue(s)"
+  }
+]

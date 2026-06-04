@@ -40,20 +40,46 @@ These download and execute **third-party code** — one dependency can pull in *
 
 # Background
 
-<!-- TODO1: provide formal definition (from papers) -->
+A **software supply chain** comprises every step that creates, transforms, and delivers software — source code, dependencies, build tools, CI/CD pipelines, and registries.
 
-**Supply chain attacks** target the *distribution pipeline*, not the application code.
-Documented across every major ecosystem:
-
-- **npm** — event-stream (2018), axios (2026), TanStack (2026)
-- **PyPI** — typosquatting and dependency confusion campaigns
-- **Maven, RubyGems, cargo** — documented backdoor attempts
-
-<!-- TODO2: provide statistics on attack frequency increase, affected number of package, impact (e.g. financial loss) -->
+A **supply chain attack** compromises one trusted node in this chain, abusing existing trust so malicious code reaches downstream projects through normal workflows. One upstream compromise can spread to many.
 
 ---
 
-<!-- _footer: "Microsoft Security Blog, *Mitigating the Axios npm supply chain compromise*, Apr. 2026 · OpenAI, *Our response to the Axios developer tool compromise*, Apr. 2026" -->
+# Common Forms of Supply Chain Attacks
+
+| Attack form | How it works |
+|---|---|
+| **Typosquatting** | Publish a package with a name similar to a popular one |
+| **Dependency Confusion** | Abuse public/private registry priority to install the wrong package |
+| **Account Takeover** | Steal maintainer credentials to publish malicious versions |
+| **Package Takeover** | Take control of an abandoned package |
+| **Code Injection** | Insert malicious code into a trusted package |
+| **CI/CD Compromise** | Abuse build workflows, caches, or tokens to publish malicious artifacts |
+
+---
+
+# SSC Became a Top Risk
+
+OWASP Top 10:2025 ranks **Software Supply Chain Failures** as **A03** — a shift from traditional code defects toward **trust in external components**.
+
+- Package managers automatically resolve and execute transitive dependencies
+- CI/CD pipelines build and publish artifacts at scale
+- One upstream compromise can propagate to many downstream projects
+
+**A03:2025 data:** Avg Incidence Rate 5.72% · Total Occurrences 215,248 · Total CVEs 11
+
+These numbers reflect what testing tools can detect — SSC failures are likely underrepresented.
+
+---
+
+# Economic Impact & Trends
+
+- **IBM 2025:** supply chain compromise averaged **USD 4.91M per attack** — second-costliest breach vector
+- **ReversingLabs 2026:** **73% increase** in malicious open-source packages in 2025; npm accounts for nearly **90%** of detected OSS malware
+
+---
+
 
 # Case Study: axios — March 31, 2026
 
@@ -84,14 +110,6 @@ No prompt. No review. Compromised upon installation.
 
 ---
 
-<!-- _footer: "SLSA, *Supply chain threats*, slsa.dev/spec/v1.0/threats-overview" -->
-
-# The Supply Chain Has Many Attack Surfaces
-![](images/supply-chain-threats.svg)
-
----
-
-<!-- _footer: "SLSA, *About SLSA*, slsa.dev/spec/v1.2/about" -->
 
 # The Core Gap: No Tamper-Evident Chain
 
@@ -104,7 +122,6 @@ Attacks are **silent**.
 
 ---
 
-<!-- _footer: "SLSA, *About SLSA*, slsa.dev/spec/v1.2/about · OpenSSF, sigstore.dev" -->
 
 # Build Provenance — A Solution
 
@@ -120,7 +137,6 @@ Attacks are **silent**.
 
 ---
 
-<!-- _footer: "SLSA, *Verifying artifacts*, slsa.dev/spec/v1.0/verifying-artifacts" -->
 
 # Verification — Turning the Record into Prevention
 
@@ -165,11 +181,11 @@ Expected values are set by the maintainer, declared in the repo, or learned from
 # Example Usages of npq
 **Prior had no attestation**
 
-![](images/npq1.png)
+![](../images/npq1.png)
 
 **Prior had attestation**
 
-![](images/npq2.png)
+![](../images/npq2.png)
 
 ---
 
@@ -192,7 +208,6 @@ Provenance is available — uptake is still early.
 
 ---
 
-<!-- _footer: "TanStack, *Postmortem: TanStack npm supply-chain compromise*, 2026" -->
 
 # The Limitation: TanStack — May 11, 2026
 
@@ -203,7 +218,6 @@ Provenance is available — uptake is still early.
 
 ---
 
-<!-- _footer: "TanStack, *Postmortem: TanStack npm supply-chain compromise*, 2026" -->
 
 # How the Attack Worked
 
@@ -215,7 +229,6 @@ When a legitimate release ran, it restored the cache — which extracted the OID
 
 ---
 
-<!-- _footer: "TanStack, *Hardening TanStack After the npm Compromise*, 2026" -->
 
 # The Limit of Provenance
 
@@ -228,7 +241,6 @@ Build provenance is **necessary but not sufficient**.
 
 ---
 
-<!-- _footer: "OpenAI, *Our response to the TanStack npm supply chain attack*, 2026 · openai.com/index/our-response-to-the-tanstack-npm-supply-chain-attack" -->
 
 # Industry Response: OpenAI
 
@@ -241,38 +253,153 @@ Controls already deployed after the axios incident:
 
 ---
 
+# Defense Requires Layers
+
+| Layer | Key controls |
+|---|---|
+| **Dependency** | lockfiles, npm audit / OSV, GuardDog, `minimumReleaseAge` |
+| **Source** | MFA, protected branches, restricted publish permissions |
+| **Build** | Isolate PR vs release workflows; no shared caches; least-privilege tokens |
+| **Release** | Signed attestations, install-time provenance verification |
+
+---
+
+# Experiment — Setup
+
+**Question:** If a malicious package has no CVE, can tools still detect it?
+
+`demo-malicious-tool` — modelled on Axios-style postinstall exfiltration:
+reads `.env`, serializes `process.env`, sends payload via HTTP POST.
+
+| Tool | Category |
+|---|---|
+| npm audit, OSV | Known-vulnerability matching |
+| npq | Supply chain metadata signals |
+| GuardDog | Static behavior analysis |
+
+Control: `is-number@7.0.0` (benign, no provenance) — to observe false positives.
+
+---
+
+# Experiment — Results
+
+| Tool | Result |
+|---|---|
+| npm audit | Not flagged |
+| OSV | Not flagged |
+| npq | Not found (GitHub dependency) |
+| **GuardDog** | **Flagged** — 3 rules matched |
+
+Behavioral analysis detected the attack without any CVE record.
+
+`is-number@7.0.0` flagged by npq + GuardDog → false positives; signals need human judgment.
+
+> **Caveat:** `demo-malicious-tool` has no registry presence. Real attacks exploit existing packages. This is a proof of concept.
+
+---
+
 # Takeaways
 
-**Build provenance raises the bar — but the bar can still be cleared.**
+**No single mechanism covers the full attack surface.**
 
-- **Adopt** provenance: supported natively by npm, PyPI, and GitHub Actions
+- **Adopt** provenance: npm, PyPI, and GitHub Actions support it natively
 - **Verify** at install time: npq, Socket Firewall
-- **Harden beyond** provenance: isolate CI pipelines, restrict cache access, audit workflow permissions
+- **Behavioral analysis** (GuardDog) catches CVE blind spots without prior records
+- **Harden** the build layer: isolate workflows, restrict caches and tokens
 
 ---
 
-# References
-- SLSA — *Supply chain threats*, `slsa.dev/spec/v1.0/threats-overview`
-- SLSA — *About SLSA*, `slsa.dev/spec/v1.2/about`
-- SLSA — *Verifying artifacts*, `slsa.dev/spec/v1.0/verifying-artifacts`
-- Socket.dev — *Introducing Socket Firewall*, `socket.dev/blog/introducing-socket-firewall`
-- npq repository — `github.com/lirantal/npq`
----
+# Work Distribution
+| Task | Responsible |
+|---|---|
+| Topic survey | Chun Sing, Chia-Yun |
+| Slide design | Chun Sing |
+| Paper writing | Chun Sing, Chia-Yun  |
+| Experiment | Chia-Yun |
+| Oral Presentation | Chia-Yun |
 
+---
 # References
-- npm Blog — *Details about the event-stream incident*, 2018
-  `blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident`
-- GAO Blog — *SolarWinds Cyberattack Demands Significant Federal and Private Sector Response*, 2021
-  `gao.gov/blog/solarwinds-cyberattack-demands-significant-federal-and-private-sector-response-infographic`
-- Microsoft Security Blog — *Mitigating the Axios npm supply chain compromise*, Apr. 2026
+- NIST — *SP 800-204D: Strategies for the Integration of Software Supply Chain Security in DevSecOps CI/CD Pipelines*  
+  `nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-204D.pdf`
+- ScienceDirect — *A taxonomy and analysis of software supply chain attacks*  
+  `sciencedirect.com/science/article/pii/S2214212625003606`
+- OWASP — *Software Supply Chain Security Cheat Sheet*  
+  `cheatsheetseries.owasp.org/cheatsheets/Software_Supply_Chain_Security_Cheat_Sheet.html`
+- OWASP — *A03:2025 Software Supply Chain Failures*  
+  `owasp.org/Top10/2025/A03_2025-Software_Supply_Chain_Failures/`
+- OWASP — *Top 10:2025 Introduction and Methodology*  
+  `owasp.org/Top10/2025/0x00_2025-Introduction/`
+- SLSA — *Supply chain threats*  
+  `slsa.dev/spec/v1.0/threats-overview`
+- SLSA — *About SLSA*  
+  `slsa.dev/spec/v1.2/about`
+---
+# References
+- SLSA — *Verifying artifacts*  
+  `slsa.dev/spec/v1.0/verifying-artifacts`
+- SLSA — *SLSA Framework*  
+  `slsa.dev`
+- OpenSSF — *Sigstore*  
+  `sigstore.dev`
+- Socket.dev — *Introducing Socket Firewall*  
+  `socket.dev/blog/introducing-socket-firewall`
+- npq repository  
+  `github.com/lirantal/npq`
+- IBM — *Cost of a Data Breach Report 2025 / Attack vector overview*  
+  `ibm.com/think/topics/attack-vector`
+- ReversingLabs — *Software Supply Chain Security Report 2026*  
+  `reversinglabs.com/resources/software-supply-chain-security-report-2026`
+---
+# References
+- Microsoft Security Blog — *Mitigating the Axios npm supply chain compromise*, Apr. 2026  
   `microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise`
-- Axios —  *Post Mortem: axios npm supply chain compromise*, `github.com/axios/axios/issues/10636`
-- OpenAI — *Our response to the Axios developer tool compromise*, Apr. 2026
+- Axios — *Post Mortem: axios npm supply chain compromise*  
+  `github.com/axios/axios/issues/10636`
+- OpenAI — *Our response to the Axios developer tool compromise*, Apr. 2026  
   `openai.com/index/axios-developer-tool-compromise`
-- TanStack — *Postmortem: TanStack npm supply-chain compromise*, `tanstack.com/blog/npm-supply-chain-compromise-postmortem`
-- TanStack — *Hardening TanStack After the npm Compromise*, `tanstack.com/blog/incident-followup`
-- OpenAI — *Our response to the TanStack npm supply chain attack*, 2026
+- TanStack — *Postmortem: TanStack npm supply-chain compromise*  
+  `tanstack.com/blog/npm-supply-chain-compromise-postmortem`
+---
+# References
+- TanStack — *Hardening TanStack After the npm Compromise*  
+  `tanstack.com/blog/incident-followup`
+- OpenAI — *Our response to the TanStack npm supply chain attack*, 2026  
   `openai.com/index/our-response-to-the-tanstack-npm-supply-chain-attack`
+- GitHub Blog — *Introducing npm package provenance*  
+  `github.blog/security/supply-chain-security/introducing-npm-package-provenance`
+- GitHub Blog — *Artifact Attestations is generally available*  
+  `github.blog/changelog/2024-06-25-artifact-attestations-is-generally-available`
+- Sigstore Blog — *npm's Sigstore-powered provenance goes GA*  
+  `blog.sigstore.dev/npm-provenance-ga`
+- PyPI Blog — *PyPI now supports digital attestations*  
+  `blog.pypi.org/posts/2024-11-14-pypi-now-supports-digital-attestations`
+---
+# References
+- PyPI Blog — *PyPI 2025 Year in Review*  
+  `blog.pypi.org/posts/2025-12-31-pypi-2025-in-review`
+- Sonatype Central — *Sigstore Signature Validation via Portal*  
+  `central.sonatype.org/news/20250128_sigstore_signature_validation_via_portal`
+- RubyGems Blog — *February 2025 Updates*  
+  `blog.rubygems.org/2025/03/19/february-rubygems-updates.html`
+- prefix.dev — *Securing the Conda package supply chain with Sigstore*  
+  `prefix.dev/blog/securing-the-conda-package-supply-chain-with-sigstore`
+- ReversingLabs — *2026 Software Supply Chain Security Report identifies 73% increase in malicious open-source packages*  
+  `reversinglabs.com/press-releases/reversinglabs-2026-software-supply-chain-security-report-identifies-73-increase-in-malicious-open-source-packages`
+---
+# References
+- npm — *axios weekly downloads*  
+  `npmjs.com/package/axios`
+- Google — *OSV: Open Source Vulnerabilities*, 2021  
+  `osv.dev`
+- Datadog — *GuardDog: Identify malicious PyPI and npm packages*, 2022  
+  `github.com/DataDog/guarddog`
+- OU, Chia-Yun — *demo-malicious-tool*, 2026  
+  `github.com/OuChiaYun/demo-malicious-tool`
+- OU, Chia-Yun; NG, Chun Sing — *NTU\_SupplyChainAttacks: npm Supply Chain Risk Gate*, 2026  
+  `github.com/OuChiaYun/NTU_SupplyChainAttacks`
+- Jon Schlinkert — *is-number (npm package)*  
+  `npmjs.com/package/is-number`
 ---
 
 # Appendix: GA Dates

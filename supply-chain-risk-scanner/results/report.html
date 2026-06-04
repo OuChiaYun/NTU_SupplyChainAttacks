@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>NPM Supply Chain Defense Comparison Report</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
+  h1 { margin-bottom: 4px; }
+  .subtitle { color: #666; margin-bottom: 24px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 10px; vertical-align: top; }
+  th { background: #f4f4f4; text-align: left; white-space: nowrap; }
+  code { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; font-size: 12px; }
+  .bad  { color: #b00020; font-weight: bold; }
+  .warn { color: #9a6700; }
+  .ok   { color: #1b7f37; font-weight: bold; }
+  .gd-cell { max-width: 420px; word-break: break-word; }
+  .legend { margin-top: 20px; font-size: 12px; color: #555; border-top: 1px solid #eee; padding-top: 12px; }
+</style></head>
+<body>
+  <h1>NPM Supply Chain Defense Comparison Report</h1>
+  <p class="subtitle">
+    Generated at 2026-06-03T11:21:27+00:00<br>
+    <strong>npm audit / OSV</strong>:比對已知 CVE 資料庫,新發布的惡意套件通常抓不到<br>
+    <strong>npq</strong>:檢查套件 metadata(domain、age、provenance)<br>
+    <strong>GuardDog</strong>:Datadog 的 Semgrep 規則,偵測 process.env 序列化、敏感資料外洩、安裝腳本濫用等行為模式(本 demo 核心)
+  </p>
+  <table>
+    <thead><tr>
+      <th>Package</th><th>npm audit</th><th>OSV</th><th>npq</th>
+      <th>GuardDog (Semgrep behavior)</th>
+    </tr></thead>
+    <tbody><tr><td><strong>demo-malicious-tool</strong><br><code>1.0.1</code></td><td><span class='ok'>not flagged</span></td><td><span class='ok'>not flagged</span></td><td><span class='warn'>not checked: package not found</span></td><td class='gd-cell'><span class='bad'>flagged: 3 issue(s)</span></td></tr><tr><td><strong>is-number</strong><br><code>7.0.0</code></td><td><span class='ok'>not flagged</span></td><td><span class='ok'>not flagged</span></td><td><span class='bad'>flagged: ERROR: Package Health - Detected expired domain can be abused for account takeover: sellside.com | WARNING: Package Health - Detected an old package: created 7 years ago | WARNING: Supply Chain Security - Unable to verify provenance: the package was published without any attestations</span></td><td class='gd-cell'><span class='bad'>flagged: 1 issue(s)</span></td></tr></tbody>
+  </table>
+  <div class="legend">
+    GuardDog 命中的規則:<em>npm-serialize-environment</em>=序列化 process.env ／
+    <em>npm-exfiltrate-sensitive-data</em>=讀檔後網路外傳 ／
+    <em>npm-install-script</em>=安裝腳本自動執行。<br>
+    對照組:npm audit 與 OSV 對沒有 CVE 的新惡意套件不會有反應,凸顯供應鏈攻擊需要「行為偵測」而非僅靠版本比對。
+  </div>
+</body></html>

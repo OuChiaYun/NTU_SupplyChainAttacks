@@ -1,0 +1,422 @@
+% !TEX program = xelatex
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{fontspec}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{tocloft}
+\usepackage{ragged2e}
+
+% ---------- Font Settings ----------
+\setmainfont{DejaVu Serif}
+\setsansfont{DejaVu Sans}
+\setmonofont{DejaVu Sans Mono}
+
+% ---------- Layout ----------
+\onehalfspacing
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.25em}
+\emergencystretch=3em
+\sloppy
+\renewcommand{\contentsname}{Table of Contents}
+\renewcommand{\refname}{References}
+\renewcommand{\figurename}{Figure}
+\renewcommand{\tablename}{Table}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdftitle={Software Supply Chain Attacks and Build Provenance},
+  pdfauthor={NG, Chun Sing; OU, Chia-Yun}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Software Supply Chain Attacks and Build Provenance}
+\rhead{\thepage}
+\setlength{\headheight}{15pt}
+
+\titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% ---------- Tables ----------
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+% ---------- Listings ----------
+\lstdefinestyle{commandstyle}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+  columns=fullflexible,
+  keepspaces=true
+}
+
+% ---------- Title ----------
+\title{\bfseries Software Supply Chain Attacks and Build Provenance\\}
+\author{NG, Chun Sing (r14922186) \and OU, Chia-Yun (r14922072)}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Modern software development depends on package managers, CI/CD pipelines, and third-party registries. When developers run commands such as \texttt{npm install}, \texttt{pip install}, \texttt{mvn install}, or \texttt{conda install}, they implicitly trust a chain of transitive dependencies, maintainer accounts, build workflows, and release pipelines --- not just the code they requested.
+
+This report examines software supply chain attacks and the role of build provenance. It analyzes two npm ecosystem incidents: Axios, where stolen maintainer credentials and a \texttt{postinstall} script delivered a Remote Access Trojan through a normal installation; and TanStack, where malicious packages carried valid build provenance because the attacker compromised a shared CI/CD cache before the legitimate release workflow ran.
+
+The central argument is that build provenance is necessary but not sufficient. It improves artifact traceability and supports install-time verification, but it cannot prove an artifact is benign, nor guarantee the build environment was clean. Effective defense requires provenance as one layer within a broader strategy.
+\end{abstract}
+
+\noindent\textbf{Keywords:} software supply chain security, build provenance, SLSA, Sigstore, npm, CI/CD security, dependency attack
+
+\section{Introduction}
+
+Modern development's reliance on package managers creates a broad attack surface. A single install command may pull dozens of transitive packages and execute lifecycle scripts such as \texttt{preinstall} or \texttt{postinstall} without manual review. An attacker therefore need not compromise the final application directly --- instead, they target any trusted element in the chain: a dependency package, maintainer account, registry, build cache, CI/CD workflow, or release pipeline. A single upstream compromise can propagate malicious code to downstream projects through normal installation.
+
+Build provenance records where a software artifact came from --- the source commit, builder identity, and build workflow --- and supports install-time verification of that chain. This report examines its limits through two npm incidents: the Axios compromise \cite{axios-postmortem,microsoft-axios,openai-axios} illustrates what provenance can help detect, namely unauthorized publication through stolen maintainer credentials; the TanStack compromise \cite{tanstack-postmortem,tanstack-followup} illustrates what it cannot, as malicious packages carried \textit{valid} provenance because the attacker had already subverted the build environment upstream. Together, the two cases support the central argument: \textbf{build provenance is necessary, but not sufficient}.
+
+The remainder of this report is organized as follows. Section~2 provides background on supply chain attack surfaces, common attack forms, and the scale of the threat. Section~3 introduces build provenance: its concept, what it can and cannot prove, how verification works in practice, and the current state of ecosystem adoption. Section~4 presents the two case studies --- Axios, where provenance would have been a concrete defensive control, and TanStack, where valid provenance accompanied a malicious release because the build environment had already been subverted. Section~5 synthesizes a layered defense strategy drawn from both incidents, Section~6 presents an experimental validation at the dependency layer, and Section~7 concludes.
+
+\section{Background}
+
+A software supply chain comprises every step that creates, transforms, and delivers a software artifact --- source code, dependencies, build tools, CI/CD pipelines, package registries, and deployment mechanisms alike. A supply chain attack occurs when an attacker compromises any trusted node in this chain, abusing existing trust relationships so that malicious code enters downstream projects through normal development workflows.
+
+Supply chain attacks span four layers \cite{slsa-threats}. At the \textbf{dependency layer}, attackers exploit malicious packages, typosquatting, dependency confusion, or lifecycle scripts. At the \textbf{source layer}, they target maintainer accounts, commits, or release permissions. At the \textbf{build layer}, they abuse CI/CD workflows, cache poisoning, or OIDC tokens. At the \textbf{release layer}, they compromise registries or substitute artifacts. Prior work has proposed broader taxonomies of such attacks \cite{ssc-taxonomy}; Table~1 summarizes the six forms that exploit these surfaces, covering the range from naming tricks to full pipeline compromise.
+
+\begin{table}[h]
+\centering
+\caption{Representative software supply chain attack forms}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{P{5cm}Y}
+\toprule
+\textbf{Attack Form} & \textbf{Description} \\
+\midrule
+Typosquatting & Publishes a package whose name closely resembles a popular one to mislead developers into installing the wrong package. \\
+\addlinespace
+Dependency Confusion & Publishes a malicious package under the same name as a private package, causing the package manager to resolve the public (attacker-controlled) version. \\
+\addlinespace
+Account Takeover & Steals a maintainer's credentials to publish malicious versions through legitimate publishing channels. \\
+\addlinespace
+Package Takeover & Acquires control of an abandoned or weakly governed package and releases a malicious version. \\
+\addlinespace
+Code Injection & Inserts malicious code into a trusted package or artifact so it executes as part of normal workflows. \\
+\addlinespace
+CI/CD Compromise & Abuses build workflows, caches, or tokens to make a legitimate pipeline produce a malicious artifact. \\
+\bottomrule
+\end{tabularx}
+\renewcommand{\arraystretch}{1}
+\end{table}
+
+Supply chain failures now rank among the most significant application security risks. OWASP Top 10:2025 places them at A03 \cite{owasp-top10-a03} --- a shift from traditional defects such as injection or authentication failures toward external trust relationships: how an application is built, which components it depends on, who publishes them, and whether the final artifact can be verified. OWASP reports a 5.72\% average incidence rate and 215,248 occurrences for A03:2025 \cite{owasp-top10-a03,owasp-methodology}, though real-world frequency is likely higher: malicious packages and credential abuse often precede CVE database entries, so current scanning data underrepresents actual supply chain risk.
+
+Four structural factors explain why this attack surface has grown so large. First, modern applications contain deep dependency graphs where a small number of direct dependencies can introduce many transitive ones. Second, package managers are highly automated: they resolve versions, download packages, and sometimes execute installation scripts without human review. Third, CI/CD systems have become central to build and release processes, making workflow permissions, runner environments, OIDC tokens, and build caches important attack surfaces. Fourth, developers rarely inspect every package version, tarball, or artifact hash manually --- creating blind spots an attacker can exploit by compromising a single trusted node.
+
+The scale and trajectory of the threat reinforce why structural defenses are needed. IBM 2025 breach-cost data places supply chain compromise at USD 4.91M average per attack --- the second-costliest breach vector --- with costs spanning incident response, credential rotation, and CI/CD rebuild \cite{ibm-cost}. Meanwhile, ReversingLabs reports malicious package detections increased by 73\% in 2025, with npm accounting for nearly 90\% of detected open-source malware \cite{reversinglabs}, reflecting attackers' view of package ecosystems as a high-return surface given their scale, fast release rhythm, and highly transitive dependency graphs.
+
+\section{Build Provenance}
+
+\subsection{Motivation}
+
+Common dependency defenses offer valuable but incomplete protection. Tools such as \texttt{npm audit} detect known CVEs, but a newly published malicious version may not yet appear in any vulnerability database. \texttt{npm ci} and lockfiles verify pinned versions and registry hashes, improving reproducibility --- yet if a lockfile is generated during an attack window, it may preserve the compromised version. Dependabot automatically updates known-vulnerable dependencies, but still depends on vulnerability feeds and an automated upgrade may itself introduce a newly compromised version.
+
+These limitations point to a deeper gap: traditional package installation workflows provide no verifiable, tamper-evident chain between source code and the installed artifact. When developers install a package, they usually cannot answer whether the artifact was built from the expected source commit, whether the build steps were unmodified, whether the registry tarball matches the CI output, or whether it was produced by the expected workflow and builder identity. When these questions cannot be answered, attacks can remain silent --- the package name, version, and registry page may all appear trustworthy while the artifact itself has been tampered with. Build provenance directly addresses this gap by creating a signed, verifiable, traceable evidence chain between source and installation \cite{slsa-about}.
+
+\subsection{Conceptual Model}
+
+Build provenance is metadata recording how a software artifact was produced: the source repository, commit hash, builder identity, build workflow, and artifact hash --- summarized as \textit{Built from commit X, by pipeline Y, at time T}. SLSA provides the framework defining what provenance should prove and at what assurance level \cite{slsa-about}; Sigstore provides the signing infrastructure, using OIDC-bound keyless signing and the Rekor append-only transparency log \cite{sigstore}. When this record is signed and published to that log, a consumer can verify at install time that an artifact matches expectations.
+
+Provenance can answer three questions that traditional installation cannot: whether the artifact came from the expected source commit (via a signed commit hash), whether the build ran on the expected pipeline (via OIDC-bound builder identity), and whether the registry tarball matches CI output (via an artifact hash) \cite{slsa-about}. The core contribution is traceability --- consumers can require machine-verifiable evidence about origin and build process rather than trusting package name and version alone.
+
+Provenance is a passive record until verified. At install time, a consumer confirms the provenance signature has not been tampered with, compares the source repository, builder identity, and build type against expected values, and in higher-assurance settings recursively verifies dependencies \cite{slsa-verify}. Expected values can be declared by the maintainer, enforced by organizational policy, or inferred from prior attestations. This allows provenance to act as an install-time gate: a tool can warn when a version unexpectedly lacks an attestation, block installation when provenance disappears after a previously attested release, or verify and allow when a valid attestation is present \cite{npq}.
+
+\subsection{Technology Stack and Ecosystem}
+
+Four layers work together in practice. SLSA defines the framework and build integrity levels \cite{slsa-about}. Sigstore provides keyless signing and the Rekor transparency log \cite{sigstore}. Registries and CI platforms (npm, PyPI, GitHub Actions) generate and publish attestations on the producer side. Consumer-side tools such as npq \cite{npq} or Socket Firewall \cite{socket-firewall} act as pre-install gates, verifying provenance and evaluating package risk before installation.
+
+Provenance support is maturing across major ecosystems: npm's provenance became generally available in October 2023 (3,800 packages adopted during beta) \cite{npm-provenance,sigstore-npm-ga}; GitHub Artifact Attestations in June 2024 \cite{github-attestations}; PyPI in November 2024 (17\% of uploads attested by end of 2025) \cite{pypi-attestations,pypi-2025}; with Maven, RubyGems, and Conda in various stages of opt-in or beta \cite{sonatype-sigstore,rubygems-updates,conda-sigstore}. Adoption remains partial --- the binding constraint is not tooling availability but maintainer awareness, migration overhead, and whether consumers actually verify attestations at install time rather than assuming safety from their mere existence.
+
+\section{Case Studies}
+
+\subsection{Axios}
+
+Axios is a widely used JavaScript HTTP client with over 100 million weekly downloads \cite{axios-npm-stats}. On March 31, 2026, an attacker used stolen maintainer credentials to publish malicious versions during an exposure window of approximately three hours. Each malicious version injected an attacker-controlled hidden dependency whose \texttt{postinstall} script silently installed a Remote Access Trojan --- meaning compromise occurred at installation time, not at runtime, before any user had run the application \cite{axios-postmortem,microsoft-axios}.
+
+The attack's reach extended beyond individual developer machines. The incident affected OpenAI's macOS app-signing pipeline, placing code-signing certificates for ChatGPT Desktop and Codex at risk \cite{openai-axios}. A supply chain compromise in a development environment with build credentials or signing privileges can propagate further than an end-user compromise, since the affected artifacts may themselves be distributed downstream.
+
+Critically, Axios had already adopted npm provenance: legitimate versions carried valid build attestations, but the malicious versions did not \cite{axios-postmortem,microsoft-axios}. A consumer-side tool performing provenance verification would have flagged the regression --- a package that previously shipped attestations suddenly publishing versions without them is a strong indicator of unauthorized publication. This makes the Axios incident a case where build provenance, actively verified, would have been a concrete defense.
+
+\subsection{TanStack}
+
+On May 11, 2026, TanStack suffered an npm supply chain compromise in which 42 packages and 84 malicious versions were published within minutes, with payloads targeting cloud credentials, API tokens, and SSH keys. The incident was detected by an external researcher within 26 minutes \cite{tanstack-postmortem}. Unlike the Axios compromise, the malicious versions carried \textit{valid} build provenance --- provenance correctly recorded that the packages were produced by TanStack's legitimate workflow, because the attacker had subverted that workflow from within.
+
+The attacker gained this access through cache poisoning. A fork pull request was used to poison a shared CI cache; when a later legitimate release workflow ran and restored that cache, it extracted an OIDC token from runner memory and used it to publish malicious packages through the legitimate release pipeline, generating valid provenance in the process \cite{tanstack-postmortem}. The root cause is a misplaced trust boundary: fork PR workflows operate in a lower-trust context, but when they share caches with high-trust release workflows, a low-trust entry point can contaminate the entire process.
+
+This demonstrates the core limitation of provenance: \textbf{provenance proves origin, not innocence} \cite{tanstack-followup}. Provenance confirms that an artifact came from a specific repository, workflow, and builder --- but it cannot prove the workflow was clean when it ran. If the build environment is compromised before the attestation is generated, provenance faithfully records a contaminated process. It therefore cannot substitute for CI/CD isolation, cache hardening, OIDC token scoping, and workflow permission auditing.
+
+OpenAI's response illustrates what layered defense looks like in practice: two employee devices were affected while controls were still in phased rollout. Post-Axios controls already deployed --- hardening credential materials in CI/CD pipelines, configuring \texttt{minimumReleaseAge} to reject newly published versions, and validating provenance of new packages --- show that provenance verification must be paired with install-time friction and credential protection to be effective \cite{openai-tanstack}.
+
+The two incidents together define the boundary of provenance as a control. In the Axios case, provenance was decisive: the attacker could not replicate legitimate attestations, and a consumer verifying provenance would have detected the anomaly before installation. In the TanStack case, provenance was present and valid yet insufficient: because the attacker compromised the build environment before attestation was generated, provenance faithfully recorded a contaminated process. Together, they support the central argument --- provenance is an effective control when the build environment is trustworthy, and a partial one when it is not.
+
+\section{Toward a Layered Defense Strategy}
+
+The two case studies show that no single defense mechanism can cover the entire supply chain attack surface: stolen credentials, lifecycle script abuse, CI/CD cache poisoning, and OIDC token theft each require different controls. Practical defense must therefore be layered.
+
+\subsection{Dependency Layer}
+
+The goal of the dependency layer is to reduce the probability that malicious or vulnerable packages enter a project. In practice, organizations should use lockfiles to control versions and hashes, and they should avoid unnecessary dependency updates. SBOMs can record dependency composition, while vulnerability scanners such as \texttt{npm audit} and OSV \cite{osv} can detect known vulnerabilities. However, these tools are insufficient for newly published malicious packages. Therefore, install-time gates such as npq \cite{npq} or Socket Firewall \cite{socket-firewall} should also be used to check package metadata, provenance status, and suspicious behavior. Static behavior analysis tools such as GuardDog \cite{guarddog} can further scan package source code for suspicious patterns, providing a detection layer that does not depend on CVE records. In high-risk environments, a minimum release age policy can reduce the probability that a newly published malicious version enters a project immediately \cite{openai-tanstack}.
+
+\subsection{Source Layer}
+
+The source layer protects source repositories and maintainer accounts. If a maintainer account is stolen, the attacker may directly publish malicious versions or modify the release process. Therefore, multi-factor authentication, protected branches, mandatory code review, and restricted publishing permissions are necessary controls. Organizations should also monitor abnormal commits, releases, token usage, and maintainer activity so that suspicious behavior from trusted accounts can be detected early.
+
+\subsection{Build Layer}
+
+The TanStack incident shows that build layer isolation is critical. Organizations must strictly separate untrusted pull request workflows from trusted release workflows, and should avoid sharing high-trust caches between fork pull request workflows and release workflows. GitHub Actions tokens, OIDC tokens, and registry tokens should follow the principle of least privilege, and credential materials should not appear in runner memory, logs, or locations readable by low-trust processes. Cache restore paths, build scripts, and release scripts should be treated as part of the security boundary, not merely as performance optimization tools \cite{tanstack-postmortem,tanstack-followup}.
+
+\subsection{Release Layer}
+
+The goal of the release layer is to make artifacts verifiable during publication and installation. Organizations should use signed attestations and build provenance to record source commits, builder identities, artifact hashes, and build workflows in verifiable metadata \cite{slsa-about}. More importantly, consumers should verify provenance at install time rather than merely generating provenance at publish time \cite{slsa-verify}. If a package previously had an attestation but a new version suddenly lacks one, installation tools should at least warn the user, and may block installation according to policy \cite{npq}.
+
+\section{Experimental Validation}
+
+To ground the theoretical analysis in an observable demonstration, we conducted a controlled experiment at the dependency layer. The central question: if a malicious npm package has no CVE and appears in no vulnerability database, but executes clearly suspicious behavior at install time, can common defensive tools detect it?
+
+We built a simulated malicious package, \texttt{demo-malicious-tool} \cite{demo-pkg,experiment-repo}, modelled on the Axios-style install-time attack. Its \texttt{postinstall} script uses \texttt{INIT\_CWD} to locate the installing project, reads its \texttt{.env}, serializes \texttt{process.env}, and sends a JSON payload via HTTP POST to a local test listener. A demo project depending on this package was then scanned with four tools spanning three defense categories: npm audit and OSV \cite{osv} (known-vulnerability matching), npq \cite{npq} (supply chain metadata signals), and GuardDog \cite{guarddog} (static behavior analysis). A real package, \texttt{is-number@7.0.0} \cite{isnumber} --- feature-stable since 2018 and without provenance --- was included as a benign counterpart to observe false-positive behavior.
+
+\begin{table}[h]
+\centering
+\caption{Expected and actual scan results for \texttt{demo-malicious-tool}}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{P{2.2cm}P{4.2cm}P{2.8cm}Y}
+\toprule
+\textbf{Tool} & \textbf{Category} & \textbf{Expected} & \textbf{Actual} \\
+\midrule
+npm audit & CVE / advisory lookup & Not flagged & Not flagged \\
+\addlinespace
+OSV & Vulnerability database & Not flagged & Not flagged \\
+\addlinespace
+npq & Metadata signals & Inconclusive & Not found (GitHub dependency) \\
+\addlinespace
+GuardDog & Static behavior analysis & Flagged & Flagged (3 rules) \\
+\bottomrule
+\end{tabularx}
+\renewcommand{\arraystretch}{1}
+\end{table}
+
+The results match expectations. npm audit and OSV did not flag the package because no advisory record exists for a newly created package --- this is a design boundary, not a failure: these tools answer whether a known vulnerability has been recorded, not whether the code behaves maliciously. npq could not evaluate the package because it is a GitHub dependency rather than a registry package, exposing a coverage gap for non-registry sources. GuardDog flagged three behavioral rules --- \texttt{npm-serialize-environment}, \texttt{npm-exfiltrate-sensitive-data}, and \texttt{npm-install-script} --- detecting the attack pattern from source code without any prior record.
+
+\texttt{is-number@7.0.0} was flagged by both npq (expired domain, missing provenance, package age) and GuardDog (one rule). As a widely used and benign package, these are false positives, confirming that metadata signals and behavioral rules require human interpretation rather than automated rejection.
+
+One important caveat applies to the experiment as a whole: \texttt{demo-malicious-tool} is a GitHub dependency with no registry presence or download history. In practice, developers would have reason to question installing such an unknown package; real supply chain attacks are more subtle, exploiting compromised existing packages or naming proximity rather than unknown repositories. The experiment therefore demonstrates the detection gap under controlled conditions. Its finding --- that behavioral analysis can detect malicious install-time patterns independently of vulnerability databases --- should be read as a proof of concept, not a simulation of a complete real-world attack.
+
+\section{Conclusion}
+
+Software supply chain attacks succeed because they exploit trust across every layer of modern development: package managers, maintainer accounts, registries, build workflows, and release pipelines. Attackers need not breach an application directly --- a single compromised upstream node propagates malicious code through normal installation.
+
+The two case studies and the experimental validation together define the boundary of provenance as a control. Axios shows that a provenance regression check would have been decisive against a stolen-credential attack. TanStack shows that provenance is insufficient when the build environment is subverted from within. The experiment further shows that CVE-based scanning misses newly published malicious packages, while behavioral analysis can detect suspicious patterns without any prior record. Across all three cases, no single mechanism covers the full attack surface.
+
+Build provenance is therefore necessary but not sufficient. Effective defense requires it as one layer among many --- behavioral analysis, dependency scanning, lockfile discipline, minimum release age policies, maintainer account protection, CI/CD isolation, and credential restriction --- each answering a different question, together reducing a systemic risk that no individual control can eliminate alone.
+
+\newpage
+\begin{thebibliography}{99}
+\raggedright
+
+\bibitem{nist204d}
+National Institute of Standards and Technology (2024).
+\textit{NIST SP 800-204D: Strategies for the Integration of Software Supply Chain Security in DevSecOps CI/CD Pipelines}.
+\url{https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-204D.pdf}
+
+\bibitem{owasp-cheat-sheet}
+OWASP.
+\textit{Software Supply Chain Security Cheat Sheet}.
+\url{https://cheatsheetseries.owasp.org/cheatsheets/Software_Supply_Chain_Security_Cheat_Sheet.html}
+Accessed: June 3, 2026.
+
+\bibitem{owasp-top10-a03}
+OWASP (2025).
+\textit{A03:2025 Software Supply Chain Failures}.
+\url{https://owasp.org/Top10/2025/A03_2025-Software_Supply_Chain_Failures/}
+
+\bibitem{owasp-methodology}
+OWASP (2025).
+\textit{OWASP Top 10:2025 Introduction and Methodology}.
+\url{https://owasp.org/Top10/2025/0x00_2025-Introduction/}
+
+\bibitem{slsa-threats}
+SLSA (2023).
+\textit{Supply Chain Threats}.
+\url{https://slsa.dev/spec/v1.0/threats-overview}
+Accessed: June 3, 2026.
+
+\bibitem{slsa-about}
+SLSA (2023).
+\textit{About SLSA}.
+\url{https://slsa.dev/spec/v1.2/about}
+Accessed: June 3, 2026.
+
+\bibitem{slsa-verify}
+SLSA (2023).
+\textit{Verifying Artifacts}.
+\url{https://slsa.dev/spec/v1.0/verifying-artifacts}
+Accessed: June 3, 2026.
+
+\bibitem{sigstore}
+OpenSSF.
+\textit{Sigstore}.
+\url{https://www.sigstore.dev/}
+Accessed: June 3, 2026.
+
+\bibitem{npq}
+Liran Tal.
+\textit{npq: Safely install packages with npm or yarn by auditing them as part of your install process}.
+\url{https://github.com/lirantal/npq}
+Accessed: June 3, 2026.
+
+\bibitem{socket-firewall}
+Socket.
+\textit{Introducing Socket Firewall}.
+\url{https://socket.dev/blog/introducing-socket-firewall}
+Accessed: June 3, 2026.
+
+\bibitem{axios-npm-stats}
+npm.
+\textit{axios: Weekly Downloads}.
+\url{https://www.npmjs.com/package/axios}
+Accessed: June 3, 2026.
+
+\bibitem{axios-postmortem}
+Axios (2026).
+\textit{Post Mortem: axios npm supply chain compromise}.
+\url{https://github.com/axios/axios/issues/10636}
+
+\bibitem{microsoft-axios}
+Microsoft Security Blog (2026).
+\textit{Mitigating the Axios npm supply chain compromise}.
+\url{https://www.microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise/}
+
+\bibitem{openai-axios}
+OpenAI (2026).
+\textit{Our response to the Axios developer tool compromise}.
+\url{https://openai.com/index/axios-developer-tool-compromise}
+
+\bibitem{tanstack-postmortem}
+TanStack (2026).
+\textit{Postmortem: TanStack npm supply-chain compromise}.
+\url{https://tanstack.com/blog/npm-supply-chain-compromise-postmortem}
+
+\bibitem{tanstack-followup}
+TanStack (2026).
+\textit{Hardening TanStack After the npm Compromise}.
+\url{https://tanstack.com/blog/incident-followup}
+
+\bibitem{openai-tanstack}
+OpenAI (2026).
+\textit{Our response to the TanStack npm supply chain attack}.
+\url{https://openai.com/index/our-response-to-the-tanstack-npm-supply-chain-attack}
+
+\bibitem{github-attestations}
+GitHub Blog (2024).
+\textit{Artifact Attestations is generally available}.
+\url{https://github.blog/changelog/2024-06-25-artifact-attestations-is-generally-available/}
+
+\bibitem{npm-provenance}
+GitHub Blog (2023).
+\textit{Introducing npm package provenance}.
+\url{https://github.blog/security/supply-chain-security/introducing-npm-package-provenance/}
+
+\bibitem{sigstore-npm-ga}
+Sigstore Blog (2023).
+\textit{npm's Sigstore-powered provenance goes GA}.
+\url{https://blog.sigstore.dev/npm-provenance-ga/}
+
+\bibitem{pypi-attestations}
+PyPI Blog (2024).
+\textit{PyPI now supports digital attestations}.
+\url{https://blog.pypi.org/posts/2024-11-14-pypi-now-supports-digital-attestations/}
+
+\bibitem{pypi-2025}
+PyPI Blog (2025).
+\textit{PyPI 2025 Year in Review}.
+\url{https://blog.pypi.org/posts/2025-12-31-pypi-2025-in-review/}
+
+\bibitem{sonatype-sigstore}
+Sonatype Central (2025).
+\textit{Sigstore Signature Validation via Portal}.
+\url{https://central.sonatype.org/news/20250128_sigstore_signature_validation_via_portal/}
+
+\bibitem{rubygems-updates}
+RubyGems Blog (2025).
+\textit{February 2025 Updates}.
+\url{https://blog.rubygems.org/2025/03/19/february-rubygems-updates.html}
+
+\bibitem{conda-sigstore}
+prefix.dev (2025).
+\textit{Securing the Conda package supply chain with Sigstore}.
+\url{https://prefix.dev/blog/securing-the-conda-package-supply-chain-with-sigstore}
+
+\bibitem{ibm-cost}
+IBM (2025).
+\textit{Cost of a Data Breach Report 2025 / Attack vector overview}.
+\url{https://www.ibm.com/think/topics/attack-vector}
+
+\bibitem{reversinglabs}
+ReversingLabs (2026).
+\textit{Software Supply Chain Security Report 2026}.
+\url{https://www.reversinglabs.com/resources/software-supply-chain-security-report-2026}
+
+\bibitem{ssc-taxonomy}
+ScienceDirect (2025).
+\textit{A taxonomy and analysis of software supply chain attacks}.
+\url{https://www.sciencedirect.com/science/article/pii/S2214212625003606}
+
+\bibitem{demo-pkg}
+OU, Chia-Yun (2026).
+\textit{demo-malicious-tool: Simulated malicious npm package for supply chain experiment}.
+\url{https://github.com/OuChiaYun/demo-malicious-tool}
+
+\bibitem{experiment-repo}
+OU, Chia-Yun; NG, Chun Sing (2026).
+\textit{NTU\_SupplyChainAttacks: npm Supply Chain Risk Gate}.
+\url{https://github.com/OuChiaYun/NTU_SupplyChainAttacks}
+
+\bibitem{isnumber}
+Jon Schlinkert.
+\textit{is-number (npm package)}.
+\url{https://www.npmjs.com/package/is-number}
+Accessed: June 3, 2026.
+
+\bibitem{osv}
+Google (2021).
+\textit{OSV: Open Source Vulnerabilities}.
+\url{https://osv.dev/}
+Accessed: June 3, 2026.
+
+\bibitem{guarddog}
+Datadog (2022).
+\textit{GuardDog: Identify malicious PyPI and npm packages}.
+\url{https://github.com/DataDog/guarddog}
+Accessed: June 3, 2026.
+
+\end{thebibliography}
+
+\end{document}
