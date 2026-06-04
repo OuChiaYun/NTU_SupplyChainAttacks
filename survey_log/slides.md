@@ -308,6 +308,17 @@ Behavioral analysis detected the attack without any CVE record.
 - **Harden** the build layer: isolate workflows, restrict caches and tokens
 
 ---
+
+# Work Distribution
+| Task | Responsible |
+|---|---|
+| Topic survey | Chun Sing, Chia-Yun |
+| Slide design | Chun Sing |
+| Paper writing | Chun Sing, Chia-Yun  |
+| Experiment | Chia-Yun |
+| Oral Presentation | Chia-Yun |
+
+---
 # References
 - NIST — *SP 800-204D: Strategies for the Integration of Software Supply Chain Security in DevSecOps CI/CD Pipelines*  
   `nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-204D.pdf`
